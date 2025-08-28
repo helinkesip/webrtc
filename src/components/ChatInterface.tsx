@@ -6,6 +6,7 @@ import TypingIndicator from './TypingIndicator';
 import UserSidebar from './UserSidebar';
 import ChatTabs, { ChatTab, ChatType } from './ChatTabs';
 import ConnectionSettings from './ConnectionSettings';
+import SettingsModal from './SettingsModal';
 import { ThemeToggle } from './theme-toggle';
 import { MessageCircle, Settings, Wifi, WifiOff, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,12 @@ interface User {
   status: 'online' | 'away' | 'offline';
   lastSeen?: Date;
   unreadCount?: number;
+}
+
+interface UserProfile {
+  displayName: string;
+  statusMessage: string;
+  profileColor: string;
 }
 
 interface Message {
@@ -73,6 +80,19 @@ const ChatInterface = () => {
 
   // Show connection settings if not connected
   const [showConnectionSettings, setShowConnectionSettings] = useState(true);
+  
+  // Settings modal
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // User profile settings
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('chat-user-profile');
+    return saved ? JSON.parse(saved) : {
+      displayName: userName || '',
+      statusMessage: '',
+      profileColor: '#8b5cf6'
+    };
+  });
 
   const [chats, setChats] = useState<Chat[]>([
     {
@@ -88,6 +108,7 @@ const ChatInterface = () => {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [userUnreadCounts, setUserUnreadCounts] = useState<Record<string, number>>({});
+  const [currentUserTyping, setCurrentUserTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Current user info - use real WebRTC ID when connected
@@ -373,6 +394,25 @@ const ChatInterface = () => {
     );
   };
 
+  const handleProfileUpdate = (newProfile: UserProfile) => {
+    setUserProfile(newProfile);
+    localStorage.setItem('chat-user-profile', JSON.stringify(newProfile));
+    
+    // Update userName ref if display name changed
+    if (newProfile.displayName !== userProfile.displayName) {
+      // This would need WebRTC service integration for real-time updates
+      console.log('👤 Profil güncellendi:', newProfile);
+    }
+  };
+
+  const handleTyping = (isTyping: boolean) => {
+    setCurrentUserTyping(isTyping);
+    console.log(`⌨️ ${userProfile.displayName || userName} ${isTyping ? 'yazıyor...' : 'yazmayı bıraktı'}`);
+    
+    // TODO: Send typing indicator to other users via WebRTC
+    // This would be implemented in WebRTC service to broadcast typing status
+  };
+
   const handleCreateGroup = (userIds: string[], groupName: string) => {
     const groupId = `group-${Date.now()}`;
     
@@ -637,14 +677,24 @@ const ChatInterface = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              {isConnected && userName && (
+              {isConnected && (userProfile.displayName || userName) && (
                 <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-md">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center text-sm font-semibold text-primary-foreground">
-                    {userName.charAt(0).toUpperCase()}
+                  <div 
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white"
+                    style={{ backgroundColor: userProfile.profileColor }}
+                  >
+                    {(userProfile.displayName || userName).charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm font-medium text-primary">
-                    {userName}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-primary">
+                      {userProfile.displayName || userName}
+                    </span>
+                    {userProfile.statusMessage && (
+                      <span className="text-xs text-muted-foreground">
+                        {userProfile.statusMessage}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
               
@@ -668,7 +718,12 @@ const ChatInterface = () => {
               
               <ThemeToggle />
               
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setShowSettings(true)}
+              >
                 <Settings className="w-5 h-5" />
               </Button>
             </div>
@@ -709,6 +764,25 @@ const ChatInterface = () => {
           ))}
           
           <TypingIndicator isVisible={isTyping} />
+          
+          {/* Current user typing indicator */}
+          {currentUserTyping && (
+            <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+              <div 
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+                style={{ backgroundColor: userProfile.profileColor }}
+              >
+                {(userProfile.displayName || userName).charAt(0).toUpperCase()}
+              </div>
+              <span>{userProfile.displayName || userName} yazıyor...</span>
+              <div className="flex gap-1">
+                <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
 
@@ -716,9 +790,18 @@ const ChatInterface = () => {
         <ChatInput 
           onSendMessage={handleSendMessage} 
           onFileSelect={handleFileSelect}
-          disabled={isTyping} 
+          disabled={isTyping}
+          onTyping={handleTyping}
         />
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        currentProfile={userProfile}
+        onProfileUpdate={handleProfileUpdate}
+      />
     </div>
   );
 };
