@@ -188,4 +188,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+<<<<<<< HEAD
 **Built with ❤️ by Helin**
+=======
+**Built with ❤️ by Helin**
+>>>>>>> a8ed21c220276d84aca4a459fb7927020d6f3bc2
