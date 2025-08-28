@@ -1,74 +1,191 @@
-# Welcome to your Lovable project
+# 💬 Chat Vibes - Real-time Chat Application
 
-## Project info
+A modern, real-time chat application built with React, TypeScript, and WebRTC for peer-to-peer communication.
 
-**URL**: https://lovable.dev/projects/9635a100-0ef2-4e6f-9ead-46193884f876
+## ✨ Features
 
-## How can I edit this code?
+- **🔥 Real-time Messaging**: Instant messaging with WebRTC and WebSocket fallback
+- **👥 Multi-user Support**: Support for multiple users with online/offline status
+- **💬 Chat Types**: General chat, private messaging, and group chats
+- **📁 File Sharing**: Drag & drop file sharing with P2P transfer
+- **😀 Emoji Support**: Built-in emoji picker for expressive messaging
+- **🌙 Dark/Light Mode**: Beautiful theme switching
+- **📱 Responsive Design**: Works on desktop and mobile devices
+- **🔒 Type Safe**: Built with TypeScript for reliability
+- **⚡ Performance**: Optimized bundle size and fast loading
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+### Frontend
+- **React 18** - Modern React with hooks
+- **TypeScript** - Type safety and better DX
+- **Vite** - Fast build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework
+- **ShadCN/UI** - Beautiful and accessible components
+- **Lucide React** - Modern icon library
+- **emoji-picker-react** - Emoji picker component
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/9635a100-0ef2-4e6f-9ead-46193884f876) and start prompting.
+### Backend
+- **Node.js** - JavaScript runtime
+- **Express** - Web framework
+- **WebSocket (ws)** - Real-time communication
+- **CORS** - Cross-origin resource sharing
 
-Changes made via Lovable will be committed automatically to this repo.
+### Communication
+- **WebRTC** - Peer-to-peer communication
+- **WebSocket** - Signaling and fallback messaging
 
-**Use your preferred IDE**
+## 🚀 Quick Start
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
+- Node.js 16+ 
+- npm or yarn
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Installation
 
-Follow these steps:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/chat-vibes-dynamic.git
+   cd chat-vibes-dynamic
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+2. **Install dependencies**
+   ```bash
+   # Install frontend dependencies
+   npm install
+   
+   # Install server dependencies
+   cd server
+   npm install
+   cd ..
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+3. **Start the development servers**
+   
+   **Terminal 1 - Start the signaling server:**
+   ```bash
+   cd server
+   npm start
+   ```
+   
+   **Terminal 2 - Start the frontend:**
+   ```bash
+   npm run dev
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+4. **Open your browser**
+   - Frontend: `http://localhost:8080`
+   - Server runs on: `http://localhost:3001`
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## 📱 Usage
+
+1. **Join the Chat**
+   - Enter your name
+   - Click "Giriş Yap" to connect
+
+2. **Start Messaging**
+   - Use the general chat to message everyone
+   - Click on user names to start private conversations
+   - Create group chats with multiple users
+
+3. **Share Files**
+   - Click the paperclip icon to upload files
+   - Drag and drop files directly into the chat
+
+4. **Customize Experience**
+   - Toggle between dark and light themes
+   - Use emojis to express yourself
+
+## 🏗️ Project Structure
+
+```
+chat-vibes-dynamic/
+├── src/                    # Frontend source code
+│   ├── components/         # React components
+│   │   ├── ui/            # ShadCN UI components
+│   │   ├── ChatInterface.tsx
+│   │   ├── ChatInput.tsx
+│   │   └── ...
+│   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utilities and WebRTC logic
+│   └── pages/             # Page components
+├── server/                # Backend server
+│   ├── server.js          # Express + WebSocket server
+│   └── package.json       # Server dependencies
+├── dist/                  # Production build output
+└── README.md
 ```
 
-**Edit a file directly in GitHub**
+## 🌐 Deployment
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Frontend (Static Hosting)
+```bash
+npm run build
+# Upload dist/ folder to your hosting provider
+```
 
-**Use GitHub Codespaces**
+### Server (Node.js Hosting)
+```bash
+cd server
+npm start
+# Deploy to your Node.js hosting provider
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Environment Variables
+- `PORT` - Server port (default: 3001)
+- `NODE_ENV` - Environment mode
 
-## What technologies are used for this project?
+## 🔧 Development
 
-This project is built with:
+### Available Scripts
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+**Frontend:**
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
-## How can I deploy this project?
+**Server:**
+- `npm start` - Start production server
+- `npm run dev` - Start with nodemon (auto-restart)
 
-Simply open [Lovable](https://lovable.dev/projects/9635a100-0ef2-4e6f-9ead-46193884f876) and click on Share -> Publish.
+## 📋 Features in Detail
 
-## Can I connect a custom domain to my Lovable project?
+### Real-time Communication
+- **WebRTC**: Direct peer-to-peer communication for low latency
+- **WebSocket Fallback**: Ensures message delivery when P2P fails
+- **Hybrid Architecture**: Best of both worlds
 
-Yes, you can!
+### User Experience
+- **Instant Feedback**: Messages appear immediately
+- **Typing Indicators**: See when others are typing
+- **Online Status**: Real-time user presence
+- **Unread Counts**: Never miss a message
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### File Sharing
+- **P2P Transfer**: Direct file transfer between users
+- **Drag & Drop**: Intuitive file upload
+- **File Preview**: Support for images and common files
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
-# webrtc
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [React](https://reactjs.org/) - Frontend framework
+- [WebRTC](https://webrtc.org/) - Real-time communication
+- [ShadCN/UI](https://ui.shadcn.com/) - UI components
+- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
+
+---
+
+**Built with ❤️ by [Your Name]**
