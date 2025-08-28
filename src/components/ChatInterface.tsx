@@ -52,6 +52,7 @@ const ChatInterface = () => {
     error,
     privateChatRequests,
     userName,
+    currentUserId: webrtcCurrentUserId,
     connect,
     disconnect,
     sendMessage: sendWebRTCMessage,
@@ -88,6 +89,10 @@ const ChatInterface = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [userUnreadCounts, setUserUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Current user info - use real WebRTC ID when connected
+  const currentUserId = isConnected ? webrtcCurrentUserId : 'current-user';
+  const currentUserName = userName || 'Sen';
 
   const activeChat = chats.find(chat => chat.id === activeTabId);
   
@@ -134,18 +139,86 @@ const ChatInterface = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Real-time mesaj güncellemesi
+  // Real-time mesaj güncellemesi ve grup creation handling
   useEffect(() => {
     if (isConnected && webrtcMessages.length > 0) {
       console.log('🔄 ChatInterface: Real-time mesaj güncellemesi');
       console.log('📊 Yeni mesaj sayısı:', webrtcMessages.length);
+      
+      // Check for group creation messages
+      webrtcMessages.forEach(message => {
+        console.log('🔍 Mesaj kontrol ediliyor:', {
+          chatId: message.chatId,
+          senderId: message.senderId,
+          text: message.text?.substring(0, 50) + '...',
+          isSystemMessage: message.chatId === 'system',
+          isGroupCreated: message.text?.startsWith('{"type":"group-created"')
+        });
+        
+        if (message.chatId === 'system' && message.text?.startsWith('{"type":"group-created"')) {
+          try {
+            const groupInfo = JSON.parse(message.text);
+            console.log('📨 GRUP CREATION MESAJI ALINDI:', groupInfo);
+            console.log('📨 Mesaj gönderen:', message.senderId);
+            console.log('📨 Benim ID\'im:', currentUserId);
+            console.log('📨 Katılımcılar:', groupInfo.participants);
+            
+            // Check if this user is in the participants
+            const currentUser = currentUserId;
+            const isParticipant = groupInfo.participants?.includes(currentUser);
+            console.log('📨 Ben katılımcı mıyım?', isParticipant);
+            
+            if (isParticipant) {
+              // Create the group chat if it doesn't exist
+              const existingGroup = chats.find(chat => chat.id === groupInfo.groupId);
+              console.log('📨 Var olan grup:', existingGroup ? 'VAR' : 'YOK');
+              
+              if (!existingGroup) {
+                console.log('✅ Yeni grup chat oluşturuluyor:', groupInfo.groupName);
+                const newGroupChat: Chat = {
+                  id: groupInfo.groupId,
+                  name: groupInfo.groupName,
+                  type: 'group',
+                  participants: groupInfo.participants,
+                  messages: []
+                };
+                
+                setChats(prev => [...prev, newGroupChat]);
+                
+                // Add a system message about group creation
+                const systemMessage: Message = {
+                  id: `system-${Date.now()}`,
+                  text: `"${groupInfo.groupName}" grubu ${groupInfo.createdByName} tarafından oluşturuldu.`,
+                  isUser: false,
+                  timestamp: new Date(),
+                  chatId: groupInfo.groupId,
+                  senderId: 'system',
+                  senderName: 'Sistem',
+                  type: 'chat'
+                };
+                
+                // Add system message to the group
+                setTimeout(() => {
+                  setChats(prev => prev.map(chat => 
+                    chat.id === groupInfo.groupId 
+                      ? { ...chat, messages: [...chat.messages, systemMessage] }
+                      : chat
+                  ));
+                }, 100);
+              }
+            }
+          } catch (error) {
+            console.error('❌ Grup creation mesajı parse hatası:', error);
+          }
+        }
+      });
       
       // Mesajlar geldiğinde otomatik scroll
       setTimeout(() => {
         scrollToBottom();
       }, 100);
     }
-  }, [webrtcMessages, isConnected]);
+  }, [webrtcMessages, isConnected, chats, currentUserId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -283,28 +356,81 @@ const ChatInterface = () => {
     setActiveTabId(chatId);
   };
 
-  const handleCreateGroup = (userIds: string[], groupName: string) => {
-    const chatId = `group-${Date.now()}`;
-    
-    const newChat: Chat = {
-      id: chatId,
-      name: groupName,
-      type: 'group',
-      participants: userIds,
-      messages: []
-    };
 
-    setChats(prev => [...prev, newChat]);
-    setActiveTabId(chatId);
-    setSelectedUsers([]);
-  };
 
   const handleUserToggle = (userId: string) => {
+    console.log('🔄 handleUserToggle:', {
+      userId,
+      currentSelectedUsers: selectedUsers,
+      connectedUsers: connectedUsers.map(u => ({ id: u.id, name: u.name })),
+      action: selectedUsers.includes(userId) ? 'REMOVE' : 'ADD'
+    });
+    
     setSelectedUsers(prev => 
       prev.includes(userId) 
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
+  };
+
+  const handleCreateGroup = (userIds: string[], groupName: string) => {
+    const groupId = `group-${Date.now()}`;
+    
+    // Add current user to participants if not already included
+    const allParticipants = userIds.includes(currentUserId) 
+      ? userIds 
+      : [...userIds, currentUserId];
+    
+    console.log('👥 GRUP OLUŞTURULUYOR:', { 
+      groupId, 
+      groupName, 
+      originalUserIds: userIds,
+      allParticipants,
+      currentUserId,
+      isConnected,
+      connectedUsers: connectedUsers.map(u => ({ id: u.id, name: u.name }))
+    });
+    
+    // Create group chat locally
+    const newGroupChat: Chat = {
+      id: groupId,
+      name: groupName,
+      type: 'group',
+      participants: allParticipants,
+      messages: []
+    };
+    
+    setChats(prev => [...prev, newGroupChat]);
+    setActiveTabId(groupId);
+    setSelectedUsers([]);
+    
+    // Send group creation notification to all participants via WebRTC
+    if (isConnected) {
+      const groupInfo = {
+        type: 'group-created',
+        groupId,
+        groupName,
+        participants: allParticipants,
+        createdBy: currentUserId,
+        createdByName: currentUserName
+      };
+      
+      console.log('📤 GRUP BİLGİSİ GÖNDERİLİYOR:', groupInfo);
+      console.log('📤 Target userIds:', userIds);
+      console.log('📤 All participants:', allParticipants);
+      console.log('📤 My currentUserId:', currentUserId);
+      
+      // Send to all OTHER participants (not including myself)
+      userIds.forEach(userId => {
+        if (userId !== currentUserId) {
+          console.log(`📤 Grup bilgisi gönderiliyor → ${userId} (from ${currentUserId})`);
+          // Send via WebRTC private message with special type
+          sendWebRTCPrivateMessage(JSON.stringify(groupInfo), userId, 'system');
+        } else {
+          console.log(`⏭️ Kendi ID'mi atlıyorum: ${userId}`);
+        }
+      });
+    }
   };
 
   const handleTabClose = (tabId: string) => {
@@ -337,11 +463,14 @@ const ChatInterface = () => {
         sendWebRTCPrivateMessage(text, targetUserId, activeTabId);
       } else if (activeChat.type === 'group' && activeChat.participants.length > 0) {
         // Group message - send to all participants
-        console.log(`👥 GRUP MESAJI GÖNDERİLİYOR:`, {
+        console.log(`👥 ChatInterface GRUP MESAJI GÖNDERİLİYOR:`, {
           text: text,
           participants: activeChat.participants,
           chatId: activeTabId,
-          activeChat: activeChat
+          activeChat: activeChat,
+          currentUserId: currentUserId,
+          isConnected: isConnected,
+          connectedUsers: connectedUsers.map(u => ({ id: u.id, name: u.name }))
         });
         sendWebRTCGroupMessage(text, activeChat.participants, activeTabId);
       }
@@ -468,10 +597,10 @@ const ChatInterface = () => {
           name: u.name,
           avatar: '',
           status: u.isOnline ? 'online' : 'offline',
-          unreadCount: userUnreadCounts[u.id] || 0
+          unreadCount: userUnreadCounts[u.id] > 0 ? userUnreadCounts[u.id] : undefined
         } as User)) : users.map(u => ({
           ...u,
-          unreadCount: userUnreadCounts[u.id] || 0
+          unreadCount: userUnreadCounts[u.id] > 0 ? userUnreadCounts[u.id] : undefined
         }))}
         selectedUsers={selectedUsers}
         onUserSelect={setActiveTabId}

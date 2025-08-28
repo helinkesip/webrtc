@@ -1,6 +1,4 @@
 // Basit WebRTC Chat Uygulaması
-// Daha temiz ve anlaşılır kod
-
 export interface SimpleMessage {
   id: string;
   type: 'chat' | 'file';
@@ -85,9 +83,10 @@ export class WebRTCService {
       case 'user-joined':
         if (data.from !== this.myId) {
           this.createPeerConnection(data.from);
+          const userData = data.data as { userName?: string } | undefined;
           this.onUserJoined?.({
             id: data.from,
-            name: data.data?.userName || `User-${data.from.slice(-4)}`,
+            name: userData?.userName || `User-${data.from.slice(-4)}`,
             isOnline: true
           });
         }
@@ -99,23 +98,24 @@ export class WebRTCService {
         break;
 
       case 'offer':
-        this.handleOffer(data.from, data.data);
+        this.handleOffer(data.from, data.data as RTCSessionDescriptionInit);
         break;
 
       case 'answer':
-        this.handleAnswer(data.from, data.data);
+        this.handleAnswer(data.from, data.data as RTCSessionDescriptionInit);
         break;
 
       case 'ice-candidate':
-        this.handleIceCandidate(data.from, data.data);
+        this.handleIceCandidate(data.from, data.data as RTCIceCandidateInit);
         break;
         
       case 'general-message': {
+        const messageData = data.data as { text?: string; senderName?: string; timestamp?: string | number } | undefined;
         console.log(`🌐 WebSocket üzerinden genel mesaj alındı:`, {
           from: data.from,
           to: data.to,
-          text: data.data?.text,
-          senderName: data.data?.senderName,
+          text: messageData?.text,
+          senderName: messageData?.senderName,
           myId: this.myId,
           fullData: data
         });
@@ -127,14 +127,13 @@ export class WebRTCService {
         }
         
         // Genel mesajı işle
-        const messageData = data.data || {};
         const generalMessage: SimpleMessage = {
           id: Date.now().toString(),
           type: 'chat',
-          text: (typeof messageData.text === 'string' ? messageData.text : ''),
-          senderName: (typeof messageData.senderName === 'string' ? messageData.senderName : `User-${data.from.slice(-4)}`),
+          text: (typeof messageData?.text === 'string' ? messageData.text : ''),
+          senderName: (typeof messageData?.senderName === 'string' ? messageData.senderName : `User-${data.from.slice(-4)}`),
           senderId: data.from,
-          timestamp: new Date(messageData.timestamp || Date.now()),
+          timestamp: new Date(messageData?.timestamp || Date.now()),
           chatId: 'general'
         };
         
@@ -147,13 +146,13 @@ export class WebRTCService {
       case 'private-message':
         // WebSocket fallback ile gelen özel mesaj
         console.log(`📡 WebSocket fallback mesajı alındı: ${data.from} → ${data.to}`, data);
-        this.handleWebSocketMessage(data.data, data.from);
+        this.handleWebSocketMessage(data.data as SimpleMessage, data.from);
         break;
         
       case 'private-file':
         // WebSocket fallback ile gelen özel dosya
         console.log(`📁 WebSocket fallback dosyası alındı: ${data.from} → ${data.to}`, data);
-        this.handleWebSocketFile(data.data, data.from);
+        this.handleWebSocketFile(data.data as SimpleMessage, data.from);
         break;
     }
   }

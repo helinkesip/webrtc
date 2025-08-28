@@ -224,7 +224,14 @@ export const useWebRTC = () => {
   const sendGroupMessage = useCallback((text: string, participantIds: string[], chatId: string) => {
     if (!webrtcRef.current || !isConnected) return;
 
-    console.log(`👥 Grup mesajı gönderiliyor: "${text}" → [${participantIds.join(', ')}] (chatId: ${chatId})`);
+    console.log(`👥 GRUP MESAJI GÖNDERİLİYOR:`, {
+      text,
+      participantIds,
+      chatId,
+      currentUserId,
+      myId: webrtcRef.current.myId,
+      isConnected
+    });
 
     // Kendi mesajını hemen ekle
     const myMessage: SimpleMessage = {
@@ -241,18 +248,31 @@ export const useWebRTC = () => {
     // Her grup üyesine ayrı ayrı gönder (kendisi hariç)
     let sentCount = 0;
     participantIds.forEach(participantId => {
-      if (participantId !== currentUserId && participantId !== 'me') {
-        console.log(`📤 Grup mesajı gönderiliyor: ${participantId}`);
+      const isMyself = participantId === currentUserId || participantId === 'me' || participantId === webrtcRef.current?.myId;
+      
+      console.log(`🔍 Katılımcı kontrol:`, {
+        participantId,
+        currentUserId,
+        webrtcMyId: webrtcRef.current?.myId,
+        isMyself,
+        willSend: !isMyself
+      });
+      
+      if (!isMyself) {
+        console.log(`📤 Grup mesajı gönderiliyor → ${participantId}`);
         try {
           webrtcRef.current?.sendPrivateMessage(text, participantId, chatId);
           sentCount++;
+          console.log(`✅ ${participantId} için mesaj gönderildi`);
         } catch (error) {
           console.error(`❌ Grup mesajı gönderme hatası (${participantId}):`, error);
         }
+      } else {
+        console.log(`⏭️ Kendi ID'mi atlıyorum: ${participantId}`);
       }
     });
 
-    console.log(`✅ Grup mesajı ${sentCount}/${participantIds.length - 1} üyeye gönderildi`);
+    console.log(`📊 GRUP MESAJ SONUCU: ${sentCount}/${participantIds.length} üyeye gönderildi`);
   }, [isConnected, currentUserId]);
 
   // Dosya gönderme (genel ve özel)
