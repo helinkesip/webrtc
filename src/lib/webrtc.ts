@@ -1,7 +1,7 @@
 // Basit WebRTC Chat Uygulaması
 export interface SimpleMessage {
   id: string;
-  type: 'chat' | 'file';
+  type: 'chat' | 'file' | 'typing';
   text?: string;
   fileName?: string;
   fileData?: string;
@@ -13,6 +13,7 @@ export interface SimpleMessage {
   fileSize?: number;
   fileType?: string;
   downloadUrl?: string;
+  isTyping?: boolean;
 }
 
 export interface SimpleUser {
@@ -32,6 +33,7 @@ export class WebRTCService {
   // Event handlers
   onUserJoined?: (user: SimpleUser) => void;
   onUserLeft?: (userId: string) => void;
+  onUserUpdate?: (userId: string, user: SimpleUser) => void;
   onMessage?: (message: SimpleMessage) => void;
   onFile?: (fileName: string, fileData: string, senderName: string) => void;
   onPrivateChatReceived?: (senderId: string, senderName: string, chatId: string) => void;
@@ -140,6 +142,81 @@ export class WebRTCService {
         console.log(`✅ Genel mesaj işleniyor:`, generalMessage);
         console.log(`🎯 onMessage callback çağrılıyor...`);
         this.onMessage?.(generalMessage);
+        break;
+      }
+      
+      case 'typing-status': {
+        const typingData = data.data as { isTyping?: boolean; senderName?: string; chatId?: string; senderId?: string } | undefined;
+        console.log(`⌨️ Typing status alındı:`, {
+          from: data.from,
+          isTyping: typingData?.isTyping,
+          senderName: typingData?.senderName,
+          chatId: typingData?.chatId,
+          myId: this.myId
+        });
+        
+        // Kendi typing durumumuzu atlayalım
+        if (data.from === this.myId) {
+          console.log(`⏭️ Kendi typing durumum, atlıyorum: ${data.from}`);
+          break;
+        }
+        
+        // ChatId'yi normalize et (özel sohbet için)
+        let normalizedChatId = typingData?.chatId || 'general';
+        if (normalizedChatId.startsWith('private-peer-')) {
+          // Gelen typing mesajı için chatId'yi alıcı perspektifinden düzenle
+          // Örnek: gelen "private-peer-xyz" → "private-abc" (gönderenin ID'si)
+          normalizedChatId = `private-${data.from}`;
+          console.log(`🔄 Typing chatId normalize edildi: ${typingData?.chatId} → ${normalizedChatId}`);
+        }
+        
+        // Typing status mesajını oluştur
+        const typingMessage: SimpleMessage = {
+          id: `typing-${Date.now()}`,
+          type: 'typing',
+          senderName: (typeof typingData?.senderName === 'string' ? typingData.senderName : `User-${data.from.slice(-4)}`),
+          senderId: data.from,
+          timestamp: new Date(),
+          chatId: normalizedChatId,
+          isTyping: Boolean(typingData?.isTyping)
+        };
+        
+        console.log(`⌨️ Typing status işleniyor:`, typingMessage);
+        this.onMessage?.(typingMessage);
+        break;
+      }
+      
+      case 'profile-update': {
+        const profileData = data.data as { displayName?: string; statusMessage?: string; profileColor?: string; senderId?: string } | undefined;
+        console.log(`👤 Profile update alındı:`, {
+          from: data.from,
+          displayName: profileData?.displayName,
+          statusMessage: profileData?.statusMessage,
+          profileColor: profileData?.profileColor,
+          myId: this.myId
+        });
+        
+        // Kendi profil güncellemesini atlayalım
+        if (data.from === this.myId) {
+          console.log(`⏭️ Kendi profil güncellemem, atlıyorum: ${data.from}`);
+          break;
+        }
+        
+        // Diğer kullanıcının profil bilgilerini güncelle
+        if (profileData && typeof profileData.displayName === 'string' && this.onUserUpdate) {
+          console.log(`👤 Kullanıcı profili güncelleniyor:`, {
+            userId: data.from,
+            newName: profileData.displayName
+          });
+          
+          this.onUserUpdate(data.from, {
+            id: data.from,
+            name: profileData.displayName,
+            isOnline: true
+          });
+        } else {
+          console.error(`❌ Geçersiz profile update verisi:`, profileData);
+        }
         break;
       }
         
@@ -611,6 +688,72 @@ export class WebRTCService {
     }
     
     console.log(`📊 Genel mesaj: WebSocket=${this.ws?.readyState === 1 ? 'SENT' : 'FAILED'}`);
+  }
+
+  // Typing status gönderme
+  sendTypingStatus(isTyping: boolean, senderName: string, chatId: string = 'general'): void {
+    console.log('⌨️ sendTypingStatus:', { isTyping, senderName, chatId, myId: this.myId });
+    
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const wsMessage = {
+        type: 'typing-status',
+        from: this.myId,
+        data: {
+          isTyping,
+          senderName: senderName,
+          senderId: this.myId,
+          chatId: chatId,
+          timestamp: new Date()
+        }
+      };
+      
+      try {
+        this.ws.send(JSON.stringify(wsMessage));
+        console.log(`⌨️ Typing status gönderildi: ${senderName} ${isTyping ? 'yazıyor' : 'yazmayı bıraktı'}`);
+      } catch (error) {
+        console.error(`❌ Typing status gönderme hatası:`, error);
+      }
+    } else {
+      console.error(`❌ WebSocket kapalı, typing status gönderilemedi`);
+    }
+  }
+
+  // Profil bilgilerini güncelleme ve diğer kullanıcılara duyurma
+  updateProfile(displayName: string, statusMessage: string, profileColor: string): void {
+    console.log('👤 updateProfile:', { displayName, statusMessage, profileColor, myId: this.myId });
+    
+    // Kendi kullanıcı bilgilerini güncelle
+    if (this.onUserUpdate) {
+      this.onUserUpdate(this.myId, {
+        id: this.myId,
+        name: displayName,
+        isOnline: true
+      });
+    }
+    
+    // Diğer kullanıcılara profil güncellemesini duyur
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const wsMessage = {
+        type: 'profile-update',
+        from: this.myId,
+        data: {
+          displayName,
+          statusMessage,
+          profileColor,
+          senderId: this.myId,
+          timestamp: new Date()
+        }
+      };
+      
+      try {
+        this.ws.send(JSON.stringify(wsMessage));
+        console.log(`👤 Profil güncelleme diğer kullanıcılara gönderildi:`, { displayName, statusMessage });
+      } catch (error) {
+        console.error(`❌ Profil güncelleme gönderme hatası:`, error);
+      }
+    } else {
+      console.error(`❌ WebSocket kapalı, profil güncelleme gönderilemedi`);
+    }
   }
 
   // Özel mesaj gönderme (belirli peer'a)

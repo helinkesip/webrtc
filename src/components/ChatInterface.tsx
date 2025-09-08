@@ -60,12 +60,15 @@ const ChatInterface = () => {
     privateChatRequests,
     userName,
     currentUserId: webrtcCurrentUserId,
+    typingUsers,
     connect,
     disconnect,
     sendMessage: sendWebRTCMessage,
     sendPrivateMessage: sendWebRTCPrivateMessage,
     sendGroupMessage: sendWebRTCGroupMessage,
-    sendFile: sendWebRTCFile
+    sendFile: sendWebRTCFile,
+    sendTypingStatus,
+    updateUserProfile
   } = useWebRTC();
 
   // Mock users data (fallback when not connected)
@@ -108,7 +111,6 @@ const ChatInterface = () => {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [userUnreadCounts, setUserUnreadCounts] = useState<Record<string, number>>({});
-  const [currentUserTyping, setCurrentUserTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Current user info - use real WebRTC ID when connected
@@ -398,19 +400,24 @@ const ChatInterface = () => {
     setUserProfile(newProfile);
     localStorage.setItem('chat-user-profile', JSON.stringify(newProfile));
     
-    // Update userName ref if display name changed
-    if (newProfile.displayName !== userProfile.displayName) {
-      // This would need WebRTC service integration for real-time updates
-      console.log('👤 Profil güncellendi:', newProfile);
+    // Update WebRTC service with new profile info
+    if (isConnected && newProfile.displayName !== userProfile.displayName) {
+      console.log('👤 Profil güncellendi, WebRTC ile diğer kullanıcılara gönderiliyor:', newProfile);
+      updateUserProfile(newProfile.displayName, newProfile.statusMessage, newProfile.profileColor);
     }
   };
 
   const handleTyping = (isTyping: boolean) => {
-    setCurrentUserTyping(isTyping);
     console.log(`⌨️ ${userProfile.displayName || userName} ${isTyping ? 'yazıyor...' : 'yazmayı bıraktı'}`);
+    console.log(`🔍 TYPING DEBUG: activeTabId=${activeTabId}`);
     
-    // TODO: Send typing indicator to other users via WebRTC
-    // This would be implemented in WebRTC service to broadcast typing status
+    // Send typing status to other users via WebRTC
+    if (isConnected) {
+      // GEÇICI FIX: Eğer activeTabId yanlışsa, general chat için 'general' gönder
+      const correctChatId = activeTabId === 'general' ? 'general' : activeTabId;
+      console.log(`📤 Gönderilen chatId: ${correctChatId}`);
+      sendTypingStatus(isTyping, correctChatId);
+    }
   };
 
   const handleCreateGroup = (userIds: string[], groupName: string) => {
@@ -765,23 +772,27 @@ const ChatInterface = () => {
           
           <TypingIndicator isVisible={isTyping} />
           
-          {/* Current user typing indicator */}
-          {currentUserTyping && (
-            <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-              <div 
-                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-                style={{ backgroundColor: userProfile.profileColor }}
-              >
-                {(userProfile.displayName || userName).charAt(0).toUpperCase()}
+          {/* Other users typing indicators */}
+          {(() => {
+            console.log('🔍 TYPING UI DEBUG:', {
+              activeTabId,
+              typingUsers,
+              filteredUsers: Object.entries(typingUsers).filter(([, user]) => user.chatId === activeTabId)
+            });
+            return Object.entries(typingUsers).filter(([, user]) => user.chatId === activeTabId);
+          })().map(([userId, user]) => (
+            <div key={userId} className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center text-xs font-semibold text-white">
+                {user.name.charAt(0).toUpperCase()}
               </div>
-              <span>{userProfile.displayName || userName} yazıyor...</span>
+              <span>{user.name} yazıyor...</span>
               <div className="flex gap-1">
                 <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                 <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
-          )}
+          ))}
           
           <div ref={messagesEndRef} />
         </div>

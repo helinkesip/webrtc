@@ -113,6 +113,42 @@ wss.on('connection', (ws, req) => {
           });
           break;
 
+        case 'typing-status':
+          // TYPING STATUS BROADCASTING
+          console.log(`⌨️ TYPING STATUS BROADCASTING:`, {
+            from: data.from,
+            isTyping: data.data?.isTyping,
+            senderName: data.data?.senderName,
+            chatId: data.data?.chatId,
+            activeClients: Array.from(clients.keys())
+          });
+          
+          // Göndereni hariç tutarak tüm kullanıcılara typing status'u broadcast et
+          broadcastToOthers(data.from, {
+            type: 'typing-status',
+            from: data.from,
+            data: data.data
+          });
+          break;
+
+        case 'profile-update':
+          // PROFILE UPDATE BROADCASTING
+          console.log(`👤 PROFILE UPDATE BROADCASTING:`, {
+            from: data.from,
+            displayName: data.data?.displayName,
+            statusMessage: data.data?.statusMessage,
+            profileColor: data.data?.profileColor,
+            activeClients: Array.from(clients.keys())
+          });
+          
+          // Göndereni hariç tutarak tüm kullanıcılara profil güncellemesini broadcast et
+          broadcastToOthers(data.from, {
+            type: 'profile-update',
+            from: data.from,
+            data: data.data
+          });
+          break;
+
         case 'private-message':
           // ÖZEL MESAJ FORWARDING - Detaylı debug
           console.log(`🔍 PRIVATE MESSAGE FORWARDING:`, {

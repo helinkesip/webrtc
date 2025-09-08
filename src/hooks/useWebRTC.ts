@@ -9,6 +9,7 @@ export const useWebRTC = () => {
   const [error, setError] = useState<string | null>(null);
   const [privateChatRequests, setPrivateChatRequests] = useState<{senderId: string, senderName: string, chatId: string}[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('me');
+  const [typingUsers, setTypingUsers] = useState<{[userId: string]: {name: string, chatId: string}}>({});
   
   const webrtcRef = useRef<WebRTCService | null>(null);
   const userNameRef = useRef<string>('');
@@ -44,6 +45,11 @@ export const useWebRTC = () => {
         ));
       };
 
+      webrtc.onUserUpdate = (userId, updatedUser) => {
+        console.log('👤 HOOK: Kullanıcı profil güncelleme alındı:', { userId, updatedUser });
+        setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+      };
+
       webrtc.onMessage = (message) => {
         console.log('🎯 HOOK: WebRTC mesajı alındı:', {
           text: message.text,
@@ -53,6 +59,36 @@ export const useWebRTC = () => {
           type: message.type,
           timestamp: message.timestamp
         });
+        
+        // Typing message handling
+        if (message.type === 'typing') {
+          console.log('⌨️ TYPING STATUS HOOK\'ta ALINDI:', {
+            senderId: message.senderId,
+            senderName: message.senderName,
+            isTyping: message.isTyping,
+            chatId: message.chatId
+          });
+          
+          setTypingUsers(prev => {
+            const newTypingUsers = { ...prev };
+            
+            if (message.isTyping) {
+              // Kullanıcı yazıyor
+              newTypingUsers[message.senderId] = {
+                name: message.senderName,
+                chatId: message.chatId
+              };
+            } else {
+              // Kullanıcı yazmayı bıraktı
+              delete newTypingUsers[message.senderId];
+            }
+            
+            return newTypingUsers;
+          });
+          
+          // Typing mesajlarını message listesine ekleme
+          return;
+        }
         
         if (message.chatId === 'general') {
           console.log('🌐 GENEL CHAT MESAJI HOOK\'ta ALINDI:', {
@@ -348,6 +384,23 @@ export const useWebRTC = () => {
     };
   }, []);
 
+  const sendTypingStatus = useCallback((isTyping: boolean, chatId: string = 'general') => {
+    if (webrtcRef.current && userNameRef.current) {
+      console.log('⌨️ HOOK: Typing status gönderiliyor:', { isTyping, chatId, userName: userNameRef.current });
+      webrtcRef.current.sendTypingStatus(isTyping, userNameRef.current, chatId);
+    }
+  }, []);
+
+  const updateUserProfile = useCallback((displayName: string, statusMessage: string, profileColor: string) => {
+    // Önce kendi userName'imizi güncelle
+    userNameRef.current = displayName;
+    
+    if (webrtcRef.current) {
+      console.log('👤 HOOK: Profil güncelleniyor:', { displayName, statusMessage, profileColor });
+      webrtcRef.current.updateProfile(displayName, statusMessage, profileColor);
+    }
+  }, []);
+
   return {
     // State
     isConnected,
@@ -358,6 +411,7 @@ export const useWebRTC = () => {
     privateChatRequests,
     currentUserId,
     userName: userNameRef.current,
+    typingUsers,
     
     // Actions
     connect,
@@ -366,6 +420,8 @@ export const useWebRTC = () => {
     sendPrivateMessage,
     sendGroupMessage,
     sendFile,
-    getConnectedCount
+    getConnectedCount,
+    sendTypingStatus,
+    updateUserProfile
   };
 };
